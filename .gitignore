@@ -1,0 +1,71 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging / build artifacts
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+ENV/
+pyvenv.cfg
+
+# Environment variables and secrets (Never commit API keys!)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Pipenv and Poetry local configurations
+# Note: Do NOT ignore Pipfile.lock or poetry.lock if you want reproducible builds
+.pdm.toml
+.python-version
+
+# Testing and coverage artifacts
+.toml
+.cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDEs and Code Editors (Optional, can also be configured globally)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

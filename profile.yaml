@@ -1,0 +1,46 @@
+name: Devansh
+
+student: true
+
+graduation_year: 2027
+
+visa_required: true
+
+roles:
+  - Quant Developer
+  - Quantitative Developer
+  - Software Engineer
+  - Quantitative Researcher
+
+locations:
+  - Singapore
+  - London
+  - Amsterdam
+  - Dublin
+  - New York
+  - Mumbai
+
+skills:
+  - c++
+  - python
+  - linux
+  - networking
+  - distributed systems
+  - low latency
+
+positive_keywords:
+  - intern
+  - internship
+  - graduate
+  - new grad
+  - university
+  - campus
+
+negative_keywords:
+  - senior
+  - staff
+  - principal
+  - lead
+  - manager
+  - phd
+  - director
