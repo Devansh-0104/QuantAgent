@@ -17,3 +17,6 @@ dependencies = [
     "tavily-python>=0.7.26",
     "typer>=0.26.8",
 ]
+
+[project.scripts]
+quantagent = "main:main"
