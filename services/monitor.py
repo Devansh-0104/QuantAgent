@@ -12,6 +12,7 @@ from models.opportunity import OpportunityStatus
 from models.opportunity import utc_now
 from models.page import Page
 from models.page import PageType
+from services.matcher import OpportunityMatch
 
 
 @dataclass
@@ -107,6 +108,32 @@ class Monitor:
             items,
             scan_completed=scan_completed,
         ).new
+
+    def save_matches(self, matches: list[OpportunityMatch]) -> None:
+        try:
+            for match in matches:
+                opportunity = (
+                    self.db.query(Opportunity)
+                    .filter(
+                        Opportunity.company_id == match.company_id,
+                        Opportunity.provider_id == match.provider_id,
+                    )
+                    .first()
+                )
+                if opportunity is None:
+                    raise LookupError(
+                        "Unable to persist match for "
+                        f"provider opportunity {match.provider_id}"
+                    )
+
+                opportunity.match_score = match.result.score
+                opportunity.match_priority = match.result.priority
+                opportunity.match_reason = "; ".join(match.result.reasons)
+
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def reconcile_opportunities(
         self,

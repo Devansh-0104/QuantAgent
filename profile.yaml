@@ -6,6 +6,8 @@ graduation_year: 2027
 
 visa_required: true
 
+alert_threshold: 70
+
 roles:
   - Quant Developer
   - Quantitative Developer

@@ -29,6 +29,7 @@ def build_service(**overrides: object) -> SyncService:
         "monitor": Mock(),
         "extractor": Mock(),
         "detector": ATSDetector(),
+        "matcher": Mock(),
         "factory": Mock(),
         "normalizer": Mock(),
     }
@@ -51,12 +52,15 @@ class SyncServiceTests(unittest.TestCase):
         normalizer.normalize.return_value = [{"provider_id": "one"}]
         monitor = Mock()
         monitor.reconcile_opportunities.return_value = ScanResult(new=1)
+        matcher = Mock()
+        matcher.match_many.return_value = []
         extractor = Mock()
         service = build_service(
             factory=factory,
             normalizer=normalizer,
             monitor=monitor,
             extractor=extractor,
+            matcher=matcher,
         )
 
         result = service.scan_page(page)  # type: ignore[arg-type]
@@ -75,6 +79,8 @@ class SyncServiceTests(unittest.TestCase):
             [{"provider_id": "one"}],
             scan_completed=True,
         )
+        matcher.match_many.assert_called_once_with([{"provider_id": "one"}])
+        monitor.save_matches.assert_called_once_with([])
 
     def test_failed_candidate_does_not_stop_later_candidate(self) -> None:
         page = SimpleNamespace(id=1, company_id=2, url="https://example.com/jobs")
@@ -93,11 +99,14 @@ class SyncServiceTests(unittest.TestCase):
         normalizer.normalize.return_value = [{"provider_id": "1"}]
         monitor = Mock()
         monitor.reconcile_opportunities.return_value = ScanResult(new=1)
+        matcher = Mock()
+        matcher.match_many.return_value = []
         service = build_service(
             extractor=extractor,
             factory=factory,
             normalizer=normalizer,
             monitor=monitor,
+            matcher=matcher,
         )
 
         result = service.scan_page(page)  # type: ignore[arg-type]
@@ -213,6 +222,11 @@ class SyncIdempotencyTests(unittest.TestCase):
             monitor=monitor,
             factory=factory,
             normalizer=OpportunityNormalizer(),
+            matcher=Mock(
+                match_many=Mock(
+                    side_effect=lambda opportunities: []
+                )
+            ),
         )
 
         first = service.run()

@@ -8,6 +8,9 @@ OPPORTUNITY_COLUMNS = {
     "description": "TEXT",
     "status": "VARCHAR(7) NOT NULL DEFAULT 'OPEN'",
     "last_modified": "DATETIME",
+    "match_score": "INTEGER",
+    "match_priority": "VARCHAR(6)",
+    "match_reason": "TEXT",
 }
 
 

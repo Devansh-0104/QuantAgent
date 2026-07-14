@@ -180,7 +180,16 @@ class MigrationTests(unittest.TestCase):
             column["name"] for column in inspector.get_columns("opportunities")
         }
         self.assertTrue(
-            {"provider_id", "description", "status", "last_modified"} <= columns
+            {
+                "provider_id",
+                "description",
+                "status",
+                "last_modified",
+                "match_score",
+                "match_priority",
+                "match_reason",
+            }
+            <= columns
         )
         self.assertIn("opportunity_history", inspector.get_table_names())
         index_names = {

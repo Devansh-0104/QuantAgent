@@ -5,6 +5,7 @@ from scrapers.custom import CustomResolver
 from services.discovery import Discovery
 from services.extractor import Extractor
 from services.matcher import ATSDetector
+from services.matcher import OpportunityMatcher
 from services.monitor import Monitor
 from services.normalizer import OpportunityNormalizer
 from services.notifier import ScraperFactory
@@ -24,6 +25,7 @@ monitor = Monitor()
 discovery = Discovery(resolver, registry=registry, monitor=monitor)
 extractor = Extractor()
 detector = ATSDetector()
+opportunity_matcher = OpportunityMatcher()
 factory = ScraperFactory()
 normalizer = OpportunityNormalizer()
 sync_service = SyncService(
@@ -32,6 +34,7 @@ sync_service = SyncService(
     monitor=monitor,
     extractor=extractor,
     detector=detector,
+    matcher=opportunity_matcher,
     factory=factory,
     normalizer=normalizer,
 )

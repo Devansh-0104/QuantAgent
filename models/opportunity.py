@@ -32,6 +32,12 @@ class OpportunityStatus(Enum):
     CLOSED = "CLOSED"
 
 
+class OpportunityPriority(Enum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
 class Opportunity(Base):
     __tablename__ = "opportunities"
 
@@ -47,6 +53,12 @@ class Opportunity(Base):
     visa: Mapped[str | None] = mapped_column(String, nullable=True)
     deadline: Mapped[str | None] = mapped_column(String, nullable=True)
     hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    match_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    match_priority: Mapped[OpportunityPriority | None] = mapped_column(
+        SQLEnum(OpportunityPriority),
+        nullable=True,
+    )
+    match_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[OpportunityStatus] = mapped_column(
         SQLEnum(OpportunityStatus),
         default=OpportunityStatus.OPEN,

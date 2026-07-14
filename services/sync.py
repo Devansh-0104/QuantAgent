@@ -9,6 +9,7 @@ from scrapers.base import UnsupportedScraperError
 from services.discovery import Discovery
 from services.extractor import Extractor
 from services.matcher import ATSDetector
+from services.matcher import OpportunityMatcher
 from services.monitor import Monitor
 from services.monitor import ScanResult
 from services.normalizer import OpportunityNormalizer
@@ -71,6 +72,7 @@ class SyncService:
         monitor: Monitor,
         extractor: Extractor,
         detector: ATSDetector,
+        matcher: OpportunityMatcher,
         factory: ScraperFactory,
         normalizer: OpportunityNormalizer,
     ) -> None:
@@ -79,6 +81,7 @@ class SyncService:
         self.monitor = monitor
         self.extractor = extractor
         self.detector = detector
+        self.matcher = matcher
         self.factory = factory
         self.normalizer = normalizer
 
@@ -177,6 +180,22 @@ class SyncService:
                     opportunities,
                     scan_completed=True,
                 )
+                try:
+                    matches = self.matcher.match_many(opportunities)
+                    self.monitor.save_matches(matches)
+                except Exception as exc:
+                    logger.exception("Matching failed for %s", candidate)
+                    matching_failure = f"Matching failed: {exc}"
+                    messages = [*failures, matching_failure]
+                    return PageScanResult(
+                        page_id=page.id,
+                        url=page.url,
+                        status=SyncStatus.PARTIAL,
+                        ats=ats,
+                        lifecycle=lifecycle,
+                        message="; ".join(messages),
+                    )
+
                 return PageScanResult(
                     page_id=page.id,
                     url=page.url,
