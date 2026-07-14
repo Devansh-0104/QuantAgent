@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from scrapers.base import http_client
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ class Extractor:
         return self._score_links(page_url, self._browser_links(page_url))
 
     def _html_links(self, url: str) -> list[str]:
-        response = httpx.get(
+        response = http_client.get(
             url,
             follow_redirects=True,
             timeout=20,

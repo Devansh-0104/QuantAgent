@@ -1,10 +1,9 @@
 from urllib.parse import quote
 from urllib.parse import urlsplit
 
-import httpx
-
 from scrapers.base import JobScraper
 from scrapers.base import RawJob
+from scrapers.base import http_client
 
 
 class LeverScraper(JobScraper):
@@ -13,7 +12,7 @@ class LeverScraper(JobScraper):
     def scrape(self, url: str) -> list[RawJob]:
         company = self._company(url)
         api = self.API.format(company=quote(company, safe=""))
-        response = httpx.get(api, timeout=20)
+        response = http_client.get(api, timeout=20)
         response.raise_for_status()
 
         payload = response.json()

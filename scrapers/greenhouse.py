@@ -2,10 +2,9 @@ from urllib.parse import parse_qs
 from urllib.parse import quote
 from urllib.parse import urlsplit
 
-import httpx
-
 from scrapers.base import JobScraper
 from scrapers.base import RawJob
+from scrapers.base import http_client
 
 
 class GreenhouseScraper(JobScraper):
@@ -14,7 +13,7 @@ class GreenhouseScraper(JobScraper):
     def scrape(self, url: str) -> list[RawJob]:
         board = self._board_name(url)
         api = self.API.format(board=quote(board, safe=""))
-        response = httpx.get(api, timeout=20)
+        response = http_client.get(api, timeout=20)
         response.raise_for_status()
 
         payload = response.json()

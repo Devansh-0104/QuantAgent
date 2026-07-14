@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from models.company import Company
 from models.page import PageType
 from scrapers.base import Resolver
+from scrapers.base import http_client
 from services.monitor import Monitor
 from services.registry import Registry
 
@@ -145,7 +146,7 @@ class Discovery:
                     continue
 
                 try:
-                    response = httpx.get(
+                    response = http_client.get(
                         url,
                         follow_redirects=True,
                         timeout=10,
@@ -165,7 +166,7 @@ class Discovery:
         found: dict[str, PageType],
     ) -> None:
         try:
-            response = httpx.get(
+            response = http_client.get(
                 website,
                 follow_redirects=True,
                 timeout=20,

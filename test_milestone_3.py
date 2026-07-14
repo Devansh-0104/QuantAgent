@@ -69,7 +69,7 @@ class ProviderTests(unittest.TestCase):
         response = Mock()
         response.json.return_value = {"jobs": [{"id": 1}]}
 
-        with patch("scrapers.greenhouse.httpx.get", return_value=response) as get:
+        with patch("scrapers.greenhouse.http_client.get", return_value=response) as get:
             jobs = GreenhouseScraper().scrape(
                 "https://boards.greenhouse.io/example/jobs/1"
             )
@@ -85,7 +85,7 @@ class ProviderTests(unittest.TestCase):
         response = Mock()
         response.json.return_value = [{"id": "one"}]
 
-        with patch("scrapers.lever.httpx.get", return_value=response) as get:
+        with patch("scrapers.lever.http_client.get", return_value=response) as get:
             jobs = LeverScraper().scrape("https://jobs.lever.co/example/one")
 
         self.assertEqual(jobs, [{"id": "one"}])
@@ -99,7 +99,7 @@ class ProviderTests(unittest.TestCase):
         response = Mock()
         response.json.return_value = {"unexpected": []}
 
-        with patch("scrapers.greenhouse.httpx.get", return_value=response):
+        with patch("scrapers.greenhouse.http_client.get", return_value=response):
             with self.assertRaises(ValueError):
                 GreenhouseScraper().scrape("https://boards.greenhouse.io/example")
 
@@ -126,7 +126,7 @@ class ExtractorTests(unittest.TestCase):
         request = httpx.Request("GET", "https://example.com/careers")
         response = httpx.Response(500, request=request)
 
-        with patch("services.extractor.httpx.get", return_value=response):
+        with patch("services.extractor.http_client.get", return_value=response):
             with self.assertRaises(httpx.HTTPStatusError):
                 Extractor()._html_links("https://example.com/careers")
 

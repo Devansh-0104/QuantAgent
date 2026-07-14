@@ -98,7 +98,7 @@ class DiscoveryTests(unittest.TestCase):
                 )
             raise httpx.ConnectError("unavailable")
 
-        with patch("services.discovery.httpx.get", side_effect=fake_get):
+        with patch("services.discovery.http_client.get", side_effect=fake_get):
             result = discovery.discover(FakeCompany(id=1, name="Example"))  # type: ignore[arg-type]
 
         self.assertTrue(result)
@@ -118,7 +118,7 @@ class DiscoveryTests(unittest.TestCase):
         )
 
         with patch(
-            "services.discovery.httpx.get",
+            "services.discovery.http_client.get",
             side_effect=httpx.ConnectError("unavailable"),
         ):
             result = discovery.discover(FakeCompany(id=1, name="Example"))  # type: ignore[arg-type]
@@ -135,7 +135,7 @@ class DiscoveryTests(unittest.TestCase):
             monitor=monitor,
         )
 
-        with patch("services.discovery.httpx.get") as get:
+        with patch("services.discovery.http_client.get") as get:
             result = discovery.discover(FakeCompany(id=1, name="Example"))  # type: ignore[arg-type]
 
         self.assertFalse(result)
