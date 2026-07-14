@@ -27,6 +27,7 @@ def build_service(**overrides: object) -> SyncService:
     notifier = Mock()
     notifier.send_instant_alerts.return_value = NotificationBatchResult()
     notifier.retry_failed.return_value = NotificationBatchResult()
+    notifier.send_daily_report.return_value = NotificationBatchResult()
     dependencies = {
         "registry": Mock(),
         "discovery": Mock(),

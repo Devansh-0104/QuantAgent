@@ -13,6 +13,7 @@ from services.matcher import OpportunityMatcher
 from services.monitor import Monitor
 from services.monitor import ScanResult
 from services.normalizer import OpportunityNormalizer
+from services.notifier import DailyReportMetrics
 from services.notifier import NotificationBatchResult
 from services.notifier import NotificationService
 from services.notifier import ScraperFactory
@@ -52,10 +53,15 @@ class CompanySyncResult:
 @dataclass
 class SyncRunResult:
     companies: list[CompanySyncResult]
+    daily_report: NotificationBatchResult | None = None
 
     @property
     def status(self) -> SyncStatus:
         statuses = {company.status for company in self.companies}
+        if self.daily_report and self.daily_report.failed:
+            if statuses == {SyncStatus.FAILED}:
+                return SyncStatus.FAILED
+            return SyncStatus.PARTIAL
         if SyncStatus.FAILED in statuses:
             if len(statuses) == 1:
                 return SyncStatus.FAILED
@@ -117,7 +123,37 @@ class SyncService:
                     )
                 )
 
-        return SyncRunResult(companies=results)
+        daily_report = self._send_daily_report(results)
+        return SyncRunResult(companies=results, daily_report=daily_report)
+
+    def _send_daily_report(
+        self,
+        companies: list[CompanySyncResult],
+    ) -> NotificationBatchResult:
+        page_results = [page for company in companies for page in company.pages]
+        lifecycles = [
+            page.lifecycle for page in page_results if page.lifecycle is not None
+        ]
+        failures = sum(len(company.errors) for company in companies) + sum(
+            page.status == SyncStatus.FAILED for page in page_results
+        )
+        metrics = DailyReportMetrics(
+            companies_checked=len(companies),
+            successful_companies=sum(
+                company.status == SyncStatus.SUCCESS for company in companies
+            ),
+            failures=failures,
+            new_opportunities=sum(item.new for item in lifecycles),
+            updated_opportunities=sum(
+                item.updated + item.reopened for item in lifecycles
+            ),
+            closed_opportunities=sum(item.closed for item in lifecycles),
+        )
+        try:
+            return self.notifier.send_daily_report(metrics)
+        except Exception:
+            logger.exception("Daily report generation failed")
+            return NotificationBatchResult(failed=1)
 
     def scan_company(self, company: Company) -> CompanySyncResult:
         errors: list[str] = []

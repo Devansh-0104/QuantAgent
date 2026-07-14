@@ -146,6 +146,12 @@ def scrape(page_id: int):
 def sync():
     result = sync_service.run()
     print(f"Sync status: {result.status.value}")
+    if result.daily_report:
+        daily = result.daily_report
+        print(
+            f"daily report: sent={daily.sent} "
+            f"skipped={daily.skipped} failed={daily.failed}"
+        )
 
     for company in result.companies:
         print(f"\n=== {company.company_name}: {company.status.value} ===")
