@@ -1,6 +1,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +23,7 @@ class ScanResult:
     unchanged: int = 0
     closed: int = 0
     reopened: int = 0
+    new_provider_ids: set[str] = field(default_factory=set, compare=False)
 
 
 class Monitor:
@@ -157,6 +159,8 @@ class Monitor:
                     self._record_history(opportunity, "NEW", now)
                     seen_ids.add(opportunity.id)
                     result.new += 1
+                    if opportunity.provider_id:
+                        result.new_provider_ids.add(opportunity.provider_id)
                     continue
 
                 seen_ids.add(existing.id)

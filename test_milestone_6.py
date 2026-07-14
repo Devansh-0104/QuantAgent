@@ -17,12 +17,16 @@ from services.matcher import ATSDetector
 from services.monitor import Monitor
 from services.monitor import ScanResult
 from services.normalizer import OpportunityNormalizer
+from services.notifier import NotificationBatchResult
 from services.sync import CompanySyncResult
 from services.sync import SyncService
 from services.sync import SyncStatus
 
 
 def build_service(**overrides: object) -> SyncService:
+    notifier = Mock()
+    notifier.send_instant_alerts.return_value = NotificationBatchResult()
+    notifier.retry_failed.return_value = NotificationBatchResult()
     dependencies = {
         "registry": Mock(),
         "discovery": Mock(),
@@ -30,6 +34,7 @@ def build_service(**overrides: object) -> SyncService:
         "extractor": Mock(),
         "detector": ATSDetector(),
         "matcher": Mock(),
+        "notifier": notifier,
         "factory": Mock(),
         "normalizer": Mock(),
     }

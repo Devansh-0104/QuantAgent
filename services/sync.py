@@ -13,6 +13,8 @@ from services.matcher import OpportunityMatcher
 from services.monitor import Monitor
 from services.monitor import ScanResult
 from services.normalizer import OpportunityNormalizer
+from services.notifier import NotificationBatchResult
+from services.notifier import NotificationService
 from services.notifier import ScraperFactory
 from services.registry import Registry
 
@@ -34,6 +36,7 @@ class PageScanResult:
     status: SyncStatus
     ats: ATS | None = None
     lifecycle: ScanResult | None = None
+    notifications: NotificationBatchResult | None = None
     message: str | None = None
 
 
@@ -73,6 +76,7 @@ class SyncService:
         extractor: Extractor,
         detector: ATSDetector,
         matcher: OpportunityMatcher,
+        notifier: NotificationService,
         factory: ScraperFactory,
         normalizer: OpportunityNormalizer,
     ) -> None:
@@ -82,10 +86,21 @@ class SyncService:
         self.extractor = extractor
         self.detector = detector
         self.matcher = matcher
+        self.notifier = notifier
         self.factory = factory
         self.normalizer = normalizer
 
     def run(self) -> SyncRunResult:
+        try:
+            retry_result = self.notifier.retry_failed()
+            if retry_result.failed:
+                logger.warning(
+                    "%s previously failed notifications remain undelivered",
+                    retry_result.failed,
+                )
+        except Exception:
+            logger.exception("Unable to retry failed notifications")
+
         results: list[CompanySyncResult] = []
         for company in self.registry.all_companies():
             try:
@@ -196,6 +211,30 @@ class SyncService:
                         message="; ".join(messages),
                     )
 
+                new_matches = [
+                    match
+                    for match in matches
+                    if match.provider_id in lifecycle.new_provider_ids
+                ]
+                try:
+                    notifications = self.notifier.send_instant_alerts(new_matches)
+                except Exception as exc:
+                    logger.exception("Notification processing failed for %s", candidate)
+                    messages = [*failures, f"Notification processing failed: {exc}"]
+                    return PageScanResult(
+                        page_id=page.id,
+                        url=page.url,
+                        status=SyncStatus.PARTIAL,
+                        ats=ats,
+                        lifecycle=lifecycle,
+                        message="; ".join(messages),
+                    )
+
+                if notifications.failed:
+                    failures.append(
+                        f"{notifications.failed} instant notification(s) failed"
+                    )
+
                 return PageScanResult(
                     page_id=page.id,
                     url=page.url,
@@ -204,6 +243,7 @@ class SyncService:
                     ),
                     ats=ats,
                     lifecycle=lifecycle,
+                    notifications=notifications,
                     message="; ".join(failures) if failures else None,
                 )
             except UnsupportedScraperError as exc:

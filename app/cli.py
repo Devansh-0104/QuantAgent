@@ -9,6 +9,7 @@ from services.matcher import OpportunityMatcher
 from services.monitor import Monitor
 from services.normalizer import OpportunityNormalizer
 from services.notifier import ScraperFactory
+from services.notifier import NotificationService
 from services.registry import Registry
 from services.sync import PageScanResult
 from services.sync import SyncService
@@ -26,6 +27,7 @@ discovery = Discovery(resolver, registry=registry, monitor=monitor)
 extractor = Extractor()
 detector = ATSDetector()
 opportunity_matcher = OpportunityMatcher()
+notification_service = NotificationService.from_environment()
 factory = ScraperFactory()
 normalizer = OpportunityNormalizer()
 sync_service = SyncService(
@@ -35,6 +37,7 @@ sync_service = SyncService(
     extractor=extractor,
     detector=detector,
     matcher=opportunity_matcher,
+    notifier=notification_service,
     factory=factory,
     normalizer=normalizer,
 )
@@ -163,4 +166,10 @@ def _print_page_result(result: PageScanResult) -> None:
             f"new={lifecycle.new} updated={lifecycle.updated} "
             f"unchanged={lifecycle.unchanged} closed={lifecycle.closed} "
             f"reopened={lifecycle.reopened}"
+        )
+    if result.notifications:
+        notifications = result.notifications
+        print(
+            f"notifications: sent={notifications.sent} "
+            f"skipped={notifications.skipped} failed={notifications.failed}"
         )
