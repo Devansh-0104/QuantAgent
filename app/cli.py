@@ -1,7 +1,5 @@
 import typer
 
-from scrapers.base import ATS
-from scrapers.base import UnsupportedScraperError
 from scrapers.custom import CustomResolver
 
 from services.discovery import Discovery
@@ -11,6 +9,8 @@ from services.monitor import Monitor
 from services.normalizer import OpportunityNormalizer
 from services.notifier import ScraperFactory
 from services.registry import Registry
+from services.sync import PageScanResult
+from services.sync import SyncService
 
 app = typer.Typer()
 
@@ -20,12 +20,21 @@ app = typer.Typer()
 
 registry = Registry()
 resolver = CustomResolver()
-discovery = Discovery(resolver)
 monitor = Monitor()
+discovery = Discovery(resolver, registry=registry, monitor=monitor)
 extractor = Extractor()
 detector = ATSDetector()
 factory = ScraperFactory()
 normalizer = OpportunityNormalizer()
+sync_service = SyncService(
+    registry=registry,
+    discovery=discovery,
+    monitor=monitor,
+    extractor=extractor,
+    detector=detector,
+    factory=factory,
+    normalizer=normalizer,
+)
 
 
 # --------------------------------------------------
@@ -124,126 +133,31 @@ def scrape(page_id: int):
         print("Page not found.")
         return
 
-    ats = detector.detect(page.url)
-    print(f"Detected ATS: {ats.value}")
-
-    try:
-        scraper = factory.get(ats)
-    except UnsupportedScraperError as exc:
-        print(str(exc))
-        return
-
-    raw_jobs = scraper.scrape(page.url)
-
-    # Fixed indentation and layout blocks below
-    if ats == ATS.GREENHOUSE:
-        opportunities = normalizer.greenhouse(
-            company_id=page.company_id,
-            page_id=page.id,
-            jobs=raw_jobs,
-        )
-
-    elif ats == ATS.LEVER:
-        opportunities = normalizer.lever(
-            company_id=page.company_id,
-            page_id=page.id,
-            jobs=raw_jobs,
-        )
-
-    else:
-        print(f"{ats.value} scraper not implemented yet.")
-        return
-
-    if raw_jobs and not opportunities:
-        print("Provider data could not be normalized; existing records were preserved.")
-        return
-
-    # Moved outside the else: block so it actually runs
-    added = monitor.save_opportunities(opportunities, page_id=page.id)
-    print(f"Saved {added} new opportunities.")
+    _print_page_result(sync_service.scan_page(page))
 
     
 @app.command()
 def sync():
+    result = sync_service.run()
+    print(f"Sync status: {result.status.value}")
 
-    companies = registry.all_companies()
+    for company in result.companies:
+        print(f"\n=== {company.company_name}: {company.status.value} ===")
+        for error in company.errors:
+            print(error)
+        for page_result in company.pages:
+            _print_page_result(page_result)
 
-    for company in companies:
 
-        print(f"\n=== {company.name} ===")
-
-        discovery.discover(company)
-
-        pages = monitor.best_pages(company.id)
-
-        for page in pages:
-
-            print(f"\nScanning page:")
-
-            print(page.url)
-
-            links = extractor.analyze(page.url)
-
-            if not links:
-
-                print("No candidate links found.")
-
-                continue
-
-            scraped = False
-
-            for link in links:
-
-                ats = detector.detect(link)
-
-                if ats == ATS.CUSTOM:
-                    continue
-
-                print(f"Detected {ats.value}")
-
-                try:
-                    scraper = factory.get(ats)
-                except UnsupportedScraperError as exc:
-                    print(str(exc))
-                    continue
-
-                raw_jobs = scraper.scrape(link)
-
-                if ats == ATS.GREENHOUSE:
-
-                    jobs = normalizer.greenhouse(
-                        company.id,
-                        page.id,
-                        raw_jobs
-                    )
-
-                elif ats == ATS.LEVER:
-
-                    jobs = normalizer.lever(
-                        company.id,
-                        page.id,
-                        raw_jobs
-                    )
-
-                else:
-
-                    continue
-
-                if raw_jobs and not jobs:
-                    print(
-                        "Provider data could not be normalized; "
-                        "existing records were preserved."
-                    )
-                    continue
-
-                added = monitor.save_opportunities(jobs, page_id=page.id)
-
-                print(f"Added {added} opportunities")
-
-                scraped = True
-
-                break
-
-            if not scraped:
-
-                print("No supported ATS found.")
+def _print_page_result(result: PageScanResult) -> None:
+    provider = f" ({result.ats.value})" if result.ats else ""
+    print(f"[{result.status.value}]{provider} {result.url}")
+    if result.message:
+        print(result.message)
+    if result.lifecycle:
+        lifecycle = result.lifecycle
+        print(
+            f"new={lifecycle.new} updated={lifecycle.updated} "
+            f"unchanged={lifecycle.unchanged} closed={lifecycle.closed} "
+            f"reopened={lifecycle.reopened}"
+        )
