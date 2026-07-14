@@ -1,31 +1,26 @@
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from scrapers.base import ATS
 
 
 class ATSDetector:
-
     DOMAINS = {
         "greenhouse.io": ATS.GREENHOUSE,
-        "boards.greenhouse.io": ATS.GREENHOUSE,
-
         "myworkdayjobs.com": ATS.WORKDAY,
         "workday.com": ATS.WORKDAY,
-
-        "jobs.lever.co": ATS.LEVER,
-
+        "lever.co": ATS.LEVER,
         "ashbyhq.com": ATS.ASHBY,
-
         "smartrecruiters.com": ATS.SMARTRECRUITERS,
     }
 
-    def detect(self, url: str):
+    def detect(self, url: str) -> ATS:
+        host = urlsplit(url).hostname
+        if host is None:
+            return ATS.CUSTOM
 
-        host = urlparse(url).netloc.lower()
-
+        normalized_host = host.lower().rstrip(".")
         for domain, ats in self.DOMAINS.items():
-
-            if domain in host:
+            if normalized_host == domain or normalized_host.endswith(f".{domain}"):
                 return ats
 
         return ATS.CUSTOM

@@ -1,6 +1,7 @@
 import typer
 
 from scrapers.base import ATS
+from scrapers.base import UnsupportedScraperError
 from scrapers.custom import CustomResolver
 
 from services.discovery import Discovery
@@ -126,7 +127,12 @@ def scrape(page_id: int):
     ats = detector.detect(page.url)
     print(f"Detected ATS: {ats.value}")
 
-    scraper = factory.get(ats)
+    try:
+        scraper = factory.get(ats)
+    except UnsupportedScraperError as exc:
+        print(str(exc))
+        return
+
     raw_jobs = scraper.scrape(page.url)
 
     # Fixed indentation and layout blocks below
@@ -191,7 +197,11 @@ def sync():
 
                 print(f"Detected {ats.value}")
 
-                scraper = factory.get(ats)
+                try:
+                    scraper = factory.get(ats)
+                except UnsupportedScraperError as exc:
+                    print(str(exc))
+                    continue
 
                 raw_jobs = scraper.scrape(link)
 
