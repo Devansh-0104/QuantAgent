@@ -1,9 +1,12 @@
 import hashlib
 from datetime import datetime
 
+from sqlalchemy.exc import IntegrityError
+
 from app.database import SessionLocal
 
 from models.page import Page
+from models.page import PageType
 from models.opportunity import Opportunity
 
 
@@ -19,10 +22,10 @@ class Monitor:
 
     def register_page(
         self,
-        company_id,
-        page_type,
-        url
-    ):
+        company_id: int,
+        page_type: PageType,
+        url: str,
+    ) -> Page:
 
         page = (
             self.db.query(Page)
@@ -40,7 +43,19 @@ class Monitor:
         )
 
         self.db.add(page)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            existing = (
+                self.db.query(Page)
+                .filter(Page.url == url)
+                .first()
+            )
+            if existing is None:
+                raise
+            return existing
+
         self.db.refresh(page)
 
         return page

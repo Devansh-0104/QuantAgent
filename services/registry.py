@@ -1,5 +1,12 @@
+import logging
+
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.database import SessionLocal
 from models.company import Company
+
+
+logger = logging.getLogger(__name__)
 
 
 class Registry:
@@ -29,7 +36,7 @@ class Registry:
             .all()
         )
 
-    def update_website(self, company_name: str, website: str) -> None:
+    def update_website(self, company_name: str, website: str) -> bool:
         company = (
             self.db.query(Company)
             .filter(Company.name == company_name)
@@ -37,10 +44,17 @@ class Registry:
         )
 
         if company is None:
-            return
+            return False
 
         company.website = website
-        self.db.commit()
+        try:
+            self.db.commit()
+        except SQLAlchemyError:
+            self.db.rollback()
+            logger.exception("Unable to update website for %s", company_name)
+            return False
+
+        return True
 
     def get_company(self, name: str) -> Company | None:
         return (

@@ -1,28 +1,30 @@
-import httpx
-
-from bs4 import BeautifulSoup
+import logging
 from urllib.parse import urljoin
+from urllib.parse import urlsplit
+from urllib.parse import urlunsplit
 
-from scrapers.base import Resolver
+import httpx
+from bs4 import BeautifulSoup
 
+from models.company import Company
 from models.page import PageType
-
+from scrapers.base import Resolver
 from services.monitor import Monitor
+from services.registry import Registry
 
-from app.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 KEYWORDS = {
-
     PageType.CAREERS: [
         "career",
         "careers",
         "join",
         "jobs",
         "work-with-us",
-        "vacancies"
+        "vacancies",
     ],
-
     PageType.STUDENTS: [
         "student",
         "students",
@@ -30,22 +32,19 @@ KEYWORDS = {
         "intern",
         "internship",
         "campus",
-        "university"
+        "university",
     ],
-
     PageType.EVENTS: [
         "event",
         "events",
         "competition",
         "hackathon",
-        "program"
-    ]
-
+        "program",
+    ],
 }
 
 
 COMMON_PATHS = {
-
     PageType.CAREERS: [
         "/careers",
         "/career",
@@ -53,9 +52,8 @@ COMMON_PATHS = {
         "/join",
         "/join-us",
         "/careers/",
-        "/jobs/"
+        "/jobs/",
     ],
-
     PageType.STUDENTS: [
         "/students",
         "/student-programs",
@@ -63,145 +61,132 @@ COMMON_PATHS = {
         "/graduates",
         "/internships",
         "/internship",
-        "/campus"
+        "/campus",
     ],
-
     PageType.EVENTS: [
         "/events",
         "/event",
         "/programs",
         "/hackathon",
-        "/competitions"
-    ]
-
+        "/competitions",
+    ],
 }
 
 
+def normalize_http_url(base_url: str, href: str) -> str | None:
+    candidate = urljoin(base_url, href.strip())
+    parsed = urlsplit(candidate)
+
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        return None
+
+    return urlunsplit(
+        (
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            parsed.path or "/",
+            parsed.query,
+            "",
+        )
+    )
+
+
 class Discovery:
-
-    def __init__(self, resolver: Resolver):
-
+    def __init__(
+        self,
+        resolver: Resolver,
+        registry: Registry | None = None,
+        monitor: Monitor | None = None,
+    ) -> None:
         self.resolver = resolver
+        self.registry = registry or Registry()
+        self.monitor = monitor or Monitor()
 
-        self.db = SessionLocal()
-
-        self.monitor = Monitor()
-
-    def discover(self, company):
-
+    def discover(self, company: Company) -> bool:
         website = self.resolver.resolve(company.name)
-
         if website is None:
+            logger.warning("No website resolved for %s", company.name)
             return False
 
-        company.website = website
+        normalized_website = normalize_http_url(website, website)
+        if normalized_website is None:
+            logger.error("Resolver returned an invalid website for %s", company.name)
+            return False
 
-        self.db.commit()
+        if not self.registry.update_website(company.name, normalized_website):
+            logger.error("Unable to persist website for %s", company.name)
+            return False
 
-        found = {}
+        found: dict[str, PageType] = {}
+        self._probe_common_paths(normalized_website, found)
+        self._discover_homepage_links(normalized_website, found)
 
-        # =====================================================
-        # Strategy 1
-        # Probe common paths
-        # =====================================================
+        for url, page_type in found.items():
+            self.monitor.register_page(
+                company_id=company.id,
+                page_type=page_type,
+                url=url,
+            )
 
+        if not found:
+            logger.warning("No recruiting pages discovered for %s", company.name)
+
+        return bool(found)
+
+    def _probe_common_paths(
+        self,
+        website: str,
+        found: dict[str, PageType],
+    ) -> None:
         for page_type, paths in COMMON_PATHS.items():
-
             for path in paths:
-
-                url = urljoin(
-                    website,
-                    path
-                )
+                url = normalize_http_url(website, path)
+                if url is None:
+                    continue
 
                 try:
-
                     response = httpx.get(
                         url,
                         follow_redirects=True,
-                        timeout=10
+                        timeout=10,
                     )
+                    response.raise_for_status()
+                except httpx.HTTPError as exc:
+                    logger.debug("Common recruiting path failed: %s: %s", url, exc)
+                    continue
 
-                    if response.status_code == 200:
+                response_url = normalize_http_url(url, str(response.url))
+                if response_url is not None:
+                    found.setdefault(response_url, page_type)
 
-                        found.setdefault(
-                            str(response.url),
-                            page_type
-                        )
-
-                except Exception:
-
-                    pass
-
-        # =====================================================
-        # Strategy 2
-        # Parse homepage HTML
-        # =====================================================
-
+    def _discover_homepage_links(
+        self,
+        website: str,
+        found: dict[str, PageType],
+    ) -> None:
         try:
-
             response = httpx.get(
                 website,
                 follow_redirects=True,
-                timeout=20
+                timeout=20,
             )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning("Unable to inspect homepage %s: %s", website, exc)
+            return
 
-            soup = BeautifulSoup(
-                response.text,
-                "lxml"
-            )
+        soup = BeautifulSoup(response.text, "lxml")
+        for tag in soup.find_all("a", href=True):
+            href = tag.get("href")
+            if not isinstance(href, str):
+                continue
 
-            for tag in soup.find_all(
-                "a",
-                href=True
-            ):
+            url = normalize_http_url(website, href)
+            if url is None:
+                continue
 
-                href = tag["href"]
-
-                url = urljoin(
-                    website,
-                    href
-                )
-
-                text = (
-                    href +
-                    " " +
-                    tag.get_text(strip=True)
-                ).lower()
-
-                for page_type, words in KEYWORDS.items():
-
-                    if any(
-
-                        word in text
-
-                        for word in words
-
-                    ):
-
-                        found.setdefault(
-                            url,
-                            page_type
-                        )
-
-        except Exception:
-
-            pass
-
-        # =====================================================
-        # Save discovered pages
-        # =====================================================
-
-        for url, page_type in found.items():
-
-            self.monitor.register_page(
-
-                company_id=company.id,
-
-                page_type=page_type,
-
-                url=url
-
-            )
-
-        return True
+            text = f"{href} {tag.get_text(strip=True)}".lower()
+            for page_type, words in KEYWORDS.items():
+                if any(word in text for word in words):
+                    found.setdefault(url, page_type)
+                    break
