@@ -1,4 +1,6 @@
 import logging
+import fcntl
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 
@@ -18,6 +20,7 @@ from services.notifier import NotificationBatchResult
 from services.notifier import NotificationService
 from services.notifier import ScraperFactory
 from services.registry import Registry
+from app.config import SYNC_LOCK_PATH
 
 
 logger = logging.getLogger(__name__)
@@ -99,6 +102,10 @@ class SyncService:
         self.normalizer = normalizer
 
     def run(self) -> SyncRunResult:
+        with self._exclusive_run():
+            return self._run()
+
+    def _run(self) -> SyncRunResult:
         try:
             retry_result = self.notifier.retry_failed()
             if retry_result.failed:
@@ -127,6 +134,20 @@ class SyncService:
 
         daily_report = self._send_daily_report(results)
         return SyncRunResult(companies=results, daily_report=daily_report)
+
+    @staticmethod
+    @contextmanager
+    def _exclusive_run():
+        SYNC_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with SYNC_LOCK_PATH.open("a+", encoding="utf-8") as lock_file:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise RuntimeError("Another QuantAgent sync is already running") from exc
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def _send_daily_report(
         self,
@@ -212,8 +233,6 @@ class SyncService:
         failures: list[str] = []
         for candidate in candidates:
             ats = self.detector.detect(candidate)
-            if ats == ATS.CUSTOM:
-                continue
 
             try:
                 scraper = self.factory.get(ats)
@@ -231,7 +250,14 @@ class SyncService:
                 lifecycle = self.monitor.reconcile_opportunities(
                     page.id,
                     opportunities,
-                    scan_completed=True,
+                    scan_completed=ats in {
+                        ATS.GREENHOUSE,
+                        ATS.LEVER,
+                        ATS.ASHBY,
+                        ATS.WORKDAY,
+                        ATS.SMARTRECRUITERS,
+                        ATS.PINPOINT,
+                    },
                 )
                 try:
                     matches = self.matcher.match_many(opportunities)
@@ -308,7 +334,8 @@ class SyncService:
     def _candidate_urls(self, page_url: str) -> list[str]:
         if self.detector.detect(page_url) != ATS.CUSTOM:
             return [page_url]
-        return self.extractor.analyze(page_url)
+        candidates = self.extractor.analyze(page_url)
+        return [*candidates, page_url] if page_url not in candidates else candidates
 
     def _safe_scan_page(self, page: Page) -> PageScanResult:
         try:

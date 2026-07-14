@@ -76,8 +76,7 @@ class OpportunityNormalizerTests(unittest.TestCase):
         )
         self.assertEqual(len(opportunities), 1)
 
-        with self.assertRaises(ValueError):
-            self.normalizer.normalize(ATS.WORKDAY, 1, 2, [])
+        self.assertEqual(self.normalizer.normalize(ATS.WORKDAY, 1, 2, []), [])
 
     def test_classification_is_shared_for_all_providers(self) -> None:
         cases = {

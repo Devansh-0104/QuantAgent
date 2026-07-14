@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 LOG_DIR = PROJECT_ROOT / "logs"
+SYNC_LOCK_PATH = DATA_DIR / "sync.lock"
 
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 
@@ -41,8 +42,12 @@ def load_email_settings() -> EmailSettings | None:
     if not 1 <= port <= 65535:
         raise ValueError("QUANTAGENT_SMTP_PORT must be between 1 and 65535")
 
-    username = os.getenv("QUANTAGENT_SMTP_USERNAME") or None
-    password = os.getenv("QUANTAGENT_SMTP_PASSWORD") or None
+    username_value = os.getenv("QUANTAGENT_SMTP_USERNAME", "").strip()
+    password_value = os.getenv("QUANTAGENT_SMTP_PASSWORD", "").strip()
+    if host.casefold() == "smtp.gmail.com":
+        password_value = password_value.replace(" ", "")
+    username = username_value or None
+    password = password_value or None
     if bool(username) != bool(password):
         raise ValueError(
             "QUANTAGENT_SMTP_USERNAME and QUANTAGENT_SMTP_PASSWORD "

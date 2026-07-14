@@ -178,6 +178,20 @@ def sync():
         raise typer.Exit(code=1)
 
 
+@app.command()
+def health():
+    """Check local configuration without making network requests."""
+    companies = registry.list()
+    configured = sum(bool(company.website) for company in companies)
+    print("QuantAgent health")
+    print(f"companies: {len(companies)}")
+    print(f"websites configured: {configured}/{len(companies)}")
+    print(f"profile: loaded ({opportunity_matcher.profile.graduation_year})")
+    print(f"email: {'configured' if notification_service.enabled else 'disabled'}")
+    if configured != len(companies):
+        raise typer.Exit(code=1)
+
+
 def _print_page_result(result: PageScanResult) -> None:
     provider = f" ({result.ats.value})" if result.ats else ""
     print(f"[{result.status.value}]{provider} {result.url}")

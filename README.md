@@ -53,6 +53,7 @@ Inspect registered companies and pages:
 ```bash
 uv run quantagent list
 uv run quantagent pages "Jane Street"
+uv run quantagent health
 ```
 
 `sync` exits with status `1` when the run is partial or failed, allowing cron and
@@ -73,14 +74,18 @@ SQLite database, profile, notification content, and possibly `.env` credentials.
 
 ## Supported providers
 
-Production scraping and normalization are currently implemented for:
+Production scraping and normalization are implemented for:
 
 - Greenhouse
 - Lever
+- Workday
+- Ashby
+- SmartRecruiters
+- Pinpoint
+- Generic career pages through structured-data/HTML extraction
 
-Workday, Ashby, SmartRecruiters, and generic career pages can be detected, but
-their scrapers are not yet implemented. QuantAgent reports these pages as
-unsupported instead of silently producing incorrect data.
+Generic extraction is deliberately conservative. Incomplete generic scans do
+not close existing opportunities; authoritative ATS feeds do.
 
 ## Testing
 

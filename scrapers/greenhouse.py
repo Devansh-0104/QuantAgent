@@ -27,11 +27,11 @@ class GreenhouseScraper(JobScraper):
         path_parts = [part for part in parsed.path.split("/") if part]
         query = parse_qs(parsed.query)
 
-        if path_parts and path_parts[0] != "embed":
-            return path_parts[0]
-
         board_values = query.get("for")
         if board_values and board_values[0].strip():
             return board_values[0].strip()
+
+        if path_parts and path_parts[0] not in {"embed", "talent_community"}:
+            return path_parts[0]
 
         raise ValueError(f"Unable to determine Greenhouse board from {url}")

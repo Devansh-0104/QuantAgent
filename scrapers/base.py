@@ -22,6 +22,7 @@ class ATS(Enum):
     LEVER = "LEVER"
     ASHBY = "ASHBY"
     SMARTRECRUITERS = "SMARTRECRUITERS"
+    PINPOINT = "PINPOINT"
     CUSTOM = "CUSTOM"
 
 
@@ -103,6 +104,45 @@ class RetryingHTTPClient:
             raise last_error
 
         raise RuntimeError(f"HTTP GET failed for {url}")
+
+    def post(
+        self,
+        url: str,
+        *,
+        timeout: float,
+        json: dict[str, object],
+    ) -> httpx.Response:
+        last_error: httpx.HTTPError | None = None
+        for attempt in range(1, self.attempts + 1):
+            try:
+                response = self.client.post(url, json=json, timeout=timeout)
+                if response.status_code not in TRANSIENT_STATUS_CODES:
+                    return response
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in TRANSIENT_STATUS_CODES:
+                    raise
+                last_error = exc
+            except (
+                httpx.ConnectError,
+                httpx.NetworkError,
+                httpx.ProtocolError,
+                httpx.TimeoutException,
+            ) as exc:
+                last_error = exc
+
+            if attempt < self.attempts:
+                logger.warning(
+                    "HTTP POST failed for %s; retrying attempt %s/%s",
+                    url,
+                    attempt + 1,
+                    self.attempts,
+                )
+                sleep(self.backoff_seconds * attempt)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"HTTP POST failed for {url}")
 
 
 http_client = RetryingHTTPClient()

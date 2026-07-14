@@ -20,6 +20,7 @@ class ATSDetector:
         "lever.co": ATS.LEVER,
         "ashbyhq.com": ATS.ASHBY,
         "smartrecruiters.com": ATS.SMARTRECRUITERS,
+        "pinpointhq.com": ATS.PINPOINT,
     }
 
     def detect(self, url: str) -> ATS:
@@ -67,6 +68,21 @@ class OpportunityMatch:
 
 
 class OpportunityMatcher:
+    ROLE_ALIASES = {
+        "quant developer": ("quant developer", "quantitative developer", "research developer", "quantitative software engineer"),
+        "quantitative developer": ("quant developer", "quantitative developer", "research developer", "quantitative software engineer"),
+        "software engineer": ("software engineer", "software developer", "backend engineer", "systems engineer", "c++ developer"),
+        "quantitative researcher": ("quantitative researcher", "quant researcher", "quantitative research", "research scientist"),
+    }
+    SKILL_ALIASES = {
+        "c++": ("c++", "cpp"),
+        "python": ("python",),
+        "linux": ("linux", "unix"),
+        "networking": ("networking", "network programming", "tcp", "udp"),
+        "distributed systems": ("distributed systems", "distributed computing"),
+        "low latency": ("low latency", "latency-sensitive", "high performance"),
+    }
+
     def __init__(self, profile_path: Path | None = None) -> None:
         self.profile_path = profile_path or PROJECT_ROOT / "profile.yaml"
         self.profile = self._load_profile(self.profile_path)
@@ -82,7 +98,14 @@ class OpportunityMatcher:
         score = 0
         reasons: list[str] = []
 
-        matched_roles = [role for role in self.profile.roles if role in searchable]
+        matched_roles = [
+            role
+            for role in self.profile.roles
+            if any(
+                self._contains_keyword(searchable, alias)
+                for alias in self.ROLE_ALIASES.get(role, (role,))
+            )
+        ]
         if matched_roles:
             score += 25
             reasons.append(f"Role match: {matched_roles[0]}")
@@ -100,7 +123,14 @@ class OpportunityMatcher:
         else:
             reasons.append("Location match: none")
 
-        matched_skills = [skill for skill in self.profile.skills if skill in searchable]
+        matched_skills = [
+            skill
+            for skill in self.profile.skills
+            if any(
+                self._contains_keyword(searchable, alias)
+                for alias in self.SKILL_ALIASES.get(skill, (skill,))
+            )
+        ]
         if matched_skills:
             skill_score = round(20 * len(matched_skills) / len(self.profile.skills))
             score += skill_score
@@ -154,6 +184,17 @@ class OpportunityMatcher:
         if matched_negative:
             score -= 40
             reasons.append(f"Negative keywords: {', '.join(matched_negative)}")
+
+        if (
+            matched_roles
+            and matched_locations
+            and graduation_match
+            and not matched_negative
+            and self.profile.alert_threshold <= 75
+            and score < self.profile.alert_threshold
+        ):
+            score = self.profile.alert_threshold
+            reasons.append("Strong student match: role, location, and graduation align")
 
         bounded_score = max(0, min(100, score))
         return MatchResult(

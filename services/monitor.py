@@ -183,6 +183,8 @@ class Monitor:
                     self._record_history(existing, "REOPENED", now)
                     result.reopened += 1
                 else:
+                    if existing.status == OpportunityStatus.UPDATED:
+                        existing.status = OpportunityStatus.OPEN
                     result.unchanged += 1
 
             if scan_completed:

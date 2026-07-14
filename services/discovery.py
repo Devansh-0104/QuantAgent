@@ -140,9 +140,9 @@ class Discovery:
         found: dict[str, PageType] = {}
         get_pages = getattr(self.monitor, "get_pages", None)
         existing_pages = get_pages(company.id) if callable(get_pages) else []
-        if not existing_pages:
-            self._probe_common_paths(normalized_website, found)
         self._discover_homepage_links(normalized_website, found)
+        if not found and not existing_pages:
+            self._probe_common_paths(normalized_website, found)
 
         for url, page_type in found.items():
             self.monitor.register_page(

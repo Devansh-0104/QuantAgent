@@ -1,6 +1,7 @@
 import html
 import logging
 import smtplib
+import ssl
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import date
@@ -29,6 +30,11 @@ from scrapers.base import JobScraper
 from scrapers.base import UnsupportedScraperError
 from scrapers.greenhouse import GreenhouseScraper
 from scrapers.lever import LeverScraper
+from scrapers.custom import CustomScraper
+from scrapers.ashby import AshbyScraper
+from scrapers.smartrecruiters import SmartRecruitersScraper
+from scrapers.workday import WorkdayScraper
+from scrapers.pinpoint import PinpointScraper
 from services.matcher import OpportunityMatch
 
 
@@ -39,6 +45,11 @@ class ScraperFactory:
     SCRAPERS: dict[ATS, type[JobScraper]] = {
         ATS.GREENHOUSE: GreenhouseScraper,
         ATS.LEVER: LeverScraper,
+        ATS.CUSTOM: CustomScraper,
+        ATS.ASHBY: AshbyScraper,
+        ATS.WORKDAY: WorkdayScraper,
+        ATS.SMARTRECRUITERS: SmartRecruitersScraper,
+        ATS.PINPOINT: PinpointScraper,
     }
 
     def get(self, ats: ATS) -> JobScraper:
@@ -82,7 +93,7 @@ class SMTPEmailTransport:
             timeout=30,
         ) as smtp:
             if self.settings.use_tls:
-                smtp.starttls()
+                smtp.starttls(context=ssl.create_default_context())
             if self.settings.username and self.settings.password:
                 smtp.login(self.settings.username, self.settings.password)
             smtp.send_message(message)
@@ -193,7 +204,10 @@ class NotificationService:
         failed_notifications = (
             self.db.query(Notification)
             .filter(
-                Notification.status == NotificationStatus.FAILED,
+                Notification.status.in_([
+                    NotificationStatus.FAILED,
+                    NotificationStatus.PENDING,
+                ]),
             )
             .order_by(Notification.created_at)
             .limit(limit)
@@ -467,6 +481,11 @@ class NotificationService:
         event_rows = [
             row for row in opportunity_rows if row[0].type == OpportunityType.EVENT
         ]
+        competition_rows = [
+            row
+            for row in opportunity_rows
+            if row[0].type == OpportunityType.COMPETITION
+        ]
         graduate_rows = [
             row
             for row in opportunity_rows
@@ -502,6 +521,7 @@ class NotificationService:
             cls._opportunity_section("Medium Priority Matches", medium_rows),
             cls._opportunity_section("Application Deadlines", deadlines),
             cls._opportunity_section("Recruiting Events", event_rows),
+            cls._opportunity_section("Competitions and Hackathons", competition_rows),
             cls._opportunity_section("Graduate Programs", graduate_rows),
             cls._opportunity_section("Closed Opportunities", closed_rows),
         ]

@@ -14,6 +14,8 @@ from scrapers.custom import CustomScraper
 from scrapers.greenhouse import GreenhouseScraper
 from scrapers.lever import LeverScraper
 from scrapers.workday import WorkdayScraper
+from scrapers.smartrecruiters import SmartRecruitersScraper
+from scrapers.pinpoint import PinpointScraper
 from services.extractor import Extractor
 from services.matcher import ATSDetector
 from services.notifier import ScraperFactory
@@ -65,6 +67,14 @@ class ProviderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             GreenhouseScraper()._board_name("https://boards.greenhouse.io/")
 
+    def test_greenhouse_prefers_explicit_board_over_talent_community(self) -> None:
+        self.assertEqual(
+            GreenhouseScraper()._board_name(
+                "https://boards.greenhouse.io/talent_community?for=jumptrading"
+            ),
+            "jumptrading",
+        )
+
     def test_greenhouse_fetches_jobs_from_api(self) -> None:
         response = Mock()
         response.json.return_value = {"jobs": [{"id": 1}]}
@@ -107,19 +117,14 @@ class ProviderTests(unittest.TestCase):
         factory = ScraperFactory()
         self.assertIsInstance(factory.get(ATS.GREENHOUSE), GreenhouseScraper)
         self.assertIsInstance(factory.get(ATS.LEVER), LeverScraper)
+        self.assertIsInstance(factory.get(ATS.CUSTOM), CustomScraper)
 
-        for ats in (ATS.ASHBY, ATS.WORKDAY, ATS.SMARTRECRUITERS, ATS.CUSTOM):
-            with self.subTest(ats=ats):
-                with self.assertRaises(UnsupportedScraperError):
-                    factory.get(ats)
-
-    def test_placeholder_scrapers_fail_explicitly(self) -> None:
-        scrapers = [CustomScraper(), AshbyScraper(), WorkdayScraper()]
-        for scraper in scrapers:
-            with self.subTest(scraper=type(scraper).__name__):
-                with self.assertRaises(UnsupportedScraperError):
-                    scraper.scrape("https://example.com/jobs")
-
+        self.assertIsInstance(factory.get(ATS.ASHBY), AshbyScraper)
+        self.assertIsInstance(factory.get(ATS.WORKDAY), WorkdayScraper)
+        self.assertIsInstance(
+            factory.get(ATS.SMARTRECRUITERS), SmartRecruitersScraper
+        )
+        self.assertIsInstance(factory.get(ATS.PINPOINT), PinpointScraper)
 
 class ExtractorTests(unittest.TestCase):
     def test_static_extraction_validates_status(self) -> None:
@@ -174,7 +179,7 @@ class CLIIntegrationTests(unittest.TestCase):
             result = CliRunner().invoke(app, ["scrape", "1"])
 
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("No scraper is implemented for WORKDAY", result.stdout)
+        self.assertIn("WORKDAY failed:", result.stdout)
 
 
 if __name__ == "__main__":
