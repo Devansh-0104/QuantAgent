@@ -1,4 +1,5 @@
 import logging
+from ipaddress import ip_address
 from urllib.parse import urljoin
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
@@ -78,8 +79,24 @@ def normalize_http_url(base_url: str, href: str) -> str | None:
     candidate = urljoin(base_url, href.strip())
     parsed = urlsplit(candidate)
 
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+    ):
         return None
+
+    hostname = parsed.hostname.casefold()
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        return None
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        if not address.is_global:
+            return None
 
     return urlunsplit(
         (
@@ -104,7 +121,9 @@ class Discovery:
         self.monitor = monitor or Monitor()
 
     def discover(self, company: Company) -> bool:
-        website = self.resolver.resolve(company.name)
+        website = getattr(company, "website", None) or self.resolver.resolve(
+            company.name
+        )
         if website is None:
             logger.warning("No website resolved for %s", company.name)
             return False
@@ -119,7 +138,10 @@ class Discovery:
             return False
 
         found: dict[str, PageType] = {}
-        self._probe_common_paths(normalized_website, found)
+        get_pages = getattr(self.monitor, "get_pages", None)
+        existing_pages = get_pages(company.id) if callable(get_pages) else []
+        if not existing_pages:
+            self._probe_common_paths(normalized_website, found)
         self._discover_homepage_links(normalized_website, found)
 
         for url, page_type in found.items():
@@ -159,6 +181,7 @@ class Discovery:
                 response_url = normalize_http_url(url, str(response.url))
                 if response_url is not None:
                     found.setdefault(response_url, page_type)
+                    break
 
     def _discover_homepage_links(
         self,

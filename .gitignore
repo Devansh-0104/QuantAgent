@@ -43,6 +43,9 @@ pyvenv.cfg
 # Runtime logs
 /logs/*.log*
 
+# Local application state
+/data/*.db*
+
 # Pipenv and Poetry local configurations
 # Note: Do NOT ignore Pipfile.lock or poetry.lock if you want reproducible builds
 .pdm.toml

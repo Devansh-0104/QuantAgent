@@ -58,6 +58,8 @@ class SyncRunResult:
     @property
     def status(self) -> SyncStatus:
         statuses = {company.status for company in self.companies}
+        if not statuses:
+            return SyncStatus.SKIPPED
         if self.daily_report and self.daily_report.failed:
             if statuses == {SyncStatus.FAILED}:
                 return SyncStatus.FAILED

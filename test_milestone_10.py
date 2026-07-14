@@ -72,6 +72,7 @@ class DiscoveryHTTPClientIntegrationTests(unittest.TestCase):
         registry = Mock()
         registry.update_website.return_value = True
         monitor = Mock()
+        monitor.get_pages.return_value = []
         company = Company(id=1, name="Example")
         response = httpx.Response(
             200,

@@ -1,12 +1,11 @@
-import httpx
-
 from scrapers.base import JobScraper
 from scrapers.base import RawJob
+from scrapers.base import http_client
 
 
 class JaneStreetScraper(JobScraper):
     def scrape(self, url: str) -> list[RawJob]:
-        response = httpx.get(url, timeout=30)
+        response = http_client.get(url, timeout=30)
         response.raise_for_status()
 
         payload = response.json()

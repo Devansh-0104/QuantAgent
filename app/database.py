@@ -23,6 +23,7 @@ class Base(DeclarativeBase):
 engine = create_engine(
     DATABASE_URL,
     echo=False,
+    connect_args={"timeout": 30},
 )
 
 
@@ -37,6 +38,9 @@ def enable_sqlite_foreign_keys(
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
     finally:
         cursor.close()
 

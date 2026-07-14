@@ -28,9 +28,9 @@ class CustomResolver(Resolver):
 
         company = self.data.get(company_name)
 
-        if company:
-
-            return company["website"]
+        if isinstance(company, dict):
+            website = company.get("website")
+            return website.strip() if isinstance(website, str) else None
 
         return None
 

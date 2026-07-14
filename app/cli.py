@@ -13,6 +13,7 @@ from services.notifier import NotificationService
 from services.registry import Registry
 from services.sync import PageScanResult
 from services.sync import SyncService
+from services.sync import SyncStatus
 
 app = typer.Typer()
 
@@ -48,11 +49,24 @@ sync_service = SyncService(
 # --------------------------------------------------
 
 @app.command()
-def watch(company: str):
-    if registry.watch(company):
+def watch(
+    company: str,
+    website: str | None = typer.Option(
+        None,
+        "--website",
+        "-w",
+        help="Official company website used for recruiting-page discovery.",
+    ),
+):
+    try:
+        added = registry.watch(company, website=website)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    if added:
         print(f"✓ Watching {company}")
     else:
-        print(f"{company} is already being watched.")
+        print(f"{company} is already being watched; details updated if provided.")
 
 
 @app.command()
@@ -159,6 +173,9 @@ def sync():
             print(error)
         for page_result in company.pages:
             _print_page_result(page_result)
+
+    if result.status in {SyncStatus.FAILED, SyncStatus.PARTIAL}:
+        raise typer.Exit(code=1)
 
 
 def _print_page_result(result: PageScanResult) -> None:
