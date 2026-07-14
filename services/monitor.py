@@ -83,9 +83,9 @@ class Monitor:
     def compute_hash(self, item):
 
         text = "|".join([
-            item["title"],
-            item["location"],
-            item["url"]
+            str(item.get("title") or ""),
+            str(item.get("location") or ""),
+            str(item.get("url") or ""),
         ])
 
         return hashlib.sha256(
