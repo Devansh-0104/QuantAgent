@@ -6,6 +6,11 @@ import models.page
 import models.opportunity
 from app.cli import app
 
-Base.metadata.create_all(bind=engine)
 
-app()
+def main() -> None:
+    Base.metadata.create_all(bind=engine)
+    app()
+
+
+if __name__ == "__main__":
+    main()
