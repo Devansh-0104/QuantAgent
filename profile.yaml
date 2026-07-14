@@ -2,11 +2,19 @@ name: Devansh
 
 student: true
 
-graduation_year: 2027
+graduation_year: 2028
 
 visa_required: true
 
 alert_threshold: 70
+
+education:
+  - institution: IIT Tirupati
+    degree: M.Tech
+    field: Computer Science and Engineering
+    graduation_year: 2028
+  - institution: NIT Rourkela
+    graduation_year: 2025
 
 roles:
   - Quant Developer
