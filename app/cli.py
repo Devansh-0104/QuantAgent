@@ -154,8 +154,12 @@ def scrape(page_id: int):
         print(f"{ats.value} scraper not implemented yet.")
         return
 
+    if raw_jobs and not opportunities:
+        print("Provider data could not be normalized; existing records were preserved.")
+        return
+
     # Moved outside the else: block so it actually runs
-    added = monitor.save_opportunities(opportunities)
+    added = monitor.save_opportunities(opportunities, page_id=page.id)
     print(f"Saved {added} new opportunities.")
 
     
@@ -225,7 +229,14 @@ def sync():
 
                     continue
 
-                added = monitor.save_opportunities(jobs)
+                if raw_jobs and not jobs:
+                    print(
+                        "Provider data could not be normalized; "
+                        "existing records were preserved."
+                    )
+                    continue
+
+                added = monitor.save_opportunities(jobs, page_id=page.id)
 
                 print(f"Added {added} opportunities")
 

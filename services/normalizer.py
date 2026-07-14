@@ -17,6 +17,7 @@ class NormalizedOpportunity(TypedDict):
     provider_id: str
     type: OpportunityType
     title: str
+    description: str | None
     location: str
     url: str
     visa: str | None
@@ -64,6 +65,7 @@ class OpportunityNormalizer:
                 page_id=page_id,
                 provider_id=job.get("id"),
                 title=job.get("title"),
+                description=job.get("content"),
                 location=location,
                 url=job.get("absolute_url"),
             )
@@ -91,6 +93,7 @@ class OpportunityNormalizer:
                 page_id=page_id,
                 provider_id=job.get("id"),
                 title=job.get("text"),
+                description=job.get("descriptionPlain"),
                 location=location,
                 url=job.get("hostedUrl"),
             )
@@ -119,11 +122,13 @@ class OpportunityNormalizer:
         page_id: int,
         provider_id: object,
         title: object,
+        description: object,
         location: str,
         url: object,
     ) -> NormalizedOpportunity | None:
         normalized_provider_id = self._text(provider_id)
         normalized_title = self._text(title)
+        normalized_description = self._text(description) or None
         normalized_url = self._text(url)
 
         if not normalized_provider_id:
@@ -148,6 +153,7 @@ class OpportunityNormalizer:
             "provider_id": normalized_provider_id,
             "type": self.classify(normalized_title),
             "title": normalized_title,
+            "description": normalized_description,
             "location": location,
             "url": normalized_url,
             "visa": None,

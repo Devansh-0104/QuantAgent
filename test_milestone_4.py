@@ -33,6 +33,7 @@ class OpportunityNormalizerTests(unittest.TestCase):
                     "provider_id": "42",
                     "type": OpportunityType.INTERNSHIP,
                     "title": "Quantitative Research Intern",
+                    "description": None,
                     "location": "London",
                     "url": "https://boards.greenhouse.io/example/jobs/42",
                     "visa": None,
